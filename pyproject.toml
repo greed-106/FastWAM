@@ -21,7 +21,8 @@ dependencies = [
   "imageio-ffmpeg==0.6.0",
   "jsonlines==4.0.0",
   "modelscope==1.34.0",
-  "numpy==2.2.6",
+  # RoboTwin 的 MPlib 0.2.1（用于 TOPP 时间参数化）要求 numpy<2。
+  "numpy==1.26.4",
   "omegaconf==2.3.0",
   "packaging==25.0",
   "pandas==2.2.3",
@@ -39,6 +40,51 @@ dependencies = [
   "typing-extensions==4.15.0",
   "wandb==0.23.1",
 ]
+
+[project.optional-dependencies]
+# RoboTwin 的仿真与 GPU 规划依赖。使用 `uv sync --extra robotwin` 安装。
+robotwin = [
+  "gymnasium==0.29.1",
+  "h5py>=3.10",
+  # Open3D 的 Jupyter 交互组件依赖；保留以满足其完整运行时元数据。
+  "ipywidgets==8.1.9",
+  # CuRobo 的运行时依赖（本地 editable 构建使用 --no-deps，故在此显式列出）。
+  "importlib-resources==7.1.0",
+  "mplib==0.2.1",
+  "networkx>=3.0",
+  "numpy-quaternion>=2023.0.0",
+  "open3d==0.18.0",
+  # 与 MPlib 所需的 numpy<2 兼容；RoboTwin 仅使用标准图像 API。
+  "opencv-python==4.10.0.84",
+  "pybind11>=2.11",
+  "pyyaml==6.0.3",
+  "sapien==3.0.0b1",
+  "scikit-image>=0.22",
+  "scipy==1.15.3",
+  # SAPIEN 3.0.0b1 仍通过 pkg_resources 导入版本信息；setuptools 80+ 已移除该模块。
+  "setuptools==79.0.1",
+  "setuptools-scm==10.2.1",
+  "toppra==0.6.9",
+  "transforms3d==0.4.2",
+  "trimesh==4.4.3",
+  "warp-lang==1.16.0",
+  "wheel==0.48.0",
+  "yourdfpy>=0.0.53",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[[tool.uv.index]]
+name = "tuna"
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+default = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
+torchvision = { index = "pytorch-cu128" }
 
 [tool.setuptools.package-dir]
 "" = "src"

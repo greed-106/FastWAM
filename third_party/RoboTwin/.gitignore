@@ -4,11 +4,9 @@ data/*
 __pycache__/
 **/checkpoints/
 result/
-envs/curobo
 *.zip
 viewer_show.*
 eval_video/
-task_config/
 **/.DS_Store
 
 # eval result
@@ -20,8 +18,6 @@ assets/*
 !assets/files
 
 policy/weights/*
-
-envs/curobo/*
 
 .vscode
 /config.json

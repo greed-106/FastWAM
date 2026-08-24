@@ -4,7 +4,9 @@ outputs/
 checkpoints
 data/*
 apex/
+# RoboTwin 仿真资源由本地下载/迁移，不纳入 Git。
 assets/
+third_party/RoboTwin/assets/
 runs
 runs/
 evaluate_results/
