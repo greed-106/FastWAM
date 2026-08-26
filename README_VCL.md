@@ -83,12 +83,13 @@ CuRobo 源码已位于 `third_party/RoboTwin/envs/curobo`，不需要再次 `git
 ```bash
 CUDA_HOME=/usr/local/cuda \
 TORCH_CUDA_ARCH_LIST=9.0 \
+SETUPTOOLS_SCM_PRETEND_VERSION_FOR_NVIDIA_CUROBO=0.7.2 \
 uv pip install --python .venv/bin/python \
   --no-build-isolation --no-deps \
   -e third_party/RoboTwin/envs/curobo
 ```
 
-`--no-build-isolation` 使 `CUDAExtension` 使用 `.venv` 中的 PyTorch 头文件和库。构建产物为 `src/curobo/curobolib/*.so`，它们与机器、驱动、CUDA 和 PyTorch 版本绑定，已被 Git 忽略；更换其中任一项后重新执行本节命令。
+`--no-build-isolation` 使 `CUDAExtension` 使用 `.venv` 中的 PyTorch 头文件和库。仓库跟踪的是不带独立 `.git` 目录的 CuRobo 0.7.2 源码快照，因此 `SETUPTOOLS_SCM_PRETEND_VERSION_FOR_NVIDIA_CUROBO` 为 `setuptools-scm` 提供固定版本；它不访问网络，也不改变源码。构建产物为 `src/curobo/curobolib/*.so`，它们与机器、驱动、CUDA 和 PyTorch 版本绑定，已被 Git 忽略；更换其中任一项后重新执行本节命令。
 
 ## 5. 验证
 

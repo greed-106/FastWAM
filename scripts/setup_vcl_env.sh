@@ -6,6 +6,7 @@ readonly REQUIRED_CUDA_VERSION="12.8"
 readonly REQUIRED_COMPUTE_CAPABILITY="9.0"
 readonly REQUIRED_TORCH_VERSION="2.7.1+cu128"
 readonly REQUIRED_LOCK_SHA256="17c713ac44705d21ec0b688bdce651e968cfeefac87d4d0c81f9e56adcccbe20"
+readonly CUROBO_SCM_VERSION="0.7.2"
 readonly SHARED_ROOT="/data/shared/FastWAM"
 readonly CACHE_DIR="${SHARED_ROOT}/uv-cache"
 readonly PYTHON_BIN="/usr/bin/python3.10"
@@ -73,6 +74,11 @@ require_file() {
 require_readable_dir() {
   require_dir "$1" "$2"
   [[ -r "$1" && -x "$1" ]] || die "$2 不可读或不可遍历：$1"
+}
+
+require_writable_dir() {
+  require_dir "$1" "$2"
+  [[ -w "$1" && -x "$1" ]] || die "$2 不可写或不可遍历：$1"
 }
 
 ensure_no_symlinks() {
@@ -316,6 +322,7 @@ fi
 
 require_readable_dir "$SHARED_ROOT" "共享 FastWAM 根目录"
 require_physical_dir "$CACHE_DIR" "共享 uv 缓存"
+require_writable_dir "$CACHE_DIR" "共享 uv 缓存"
 require_file "${CACHE_DIR}/README.md" "共享 uv 缓存说明"
 lock_sha256="$(sha256sum "${repo_root}/uv.lock" | awk '{print $1}')"
 [[ "$lock_sha256" == "$REQUIRED_LOCK_SHA256" ]] || die "当前 uv.lock SHA256 为 ${lock_sha256}，不匹配共享缓存合同。"
@@ -343,6 +350,9 @@ info "使用共享缓存离线创建 Python 环境"
 "$UV_BIN" sync --extra robotwin --locked --offline --no-python-downloads --python "$PYTHON_BIN"
 
 info "编译仓库内的 CuRobo GPU 扩展"
+# CuRobo 是随 FastWAM 跟踪的源码快照，不包含独立 Git 元数据；显式提供其
+# 已验证发布版本，避免 setuptools-scm 在 editable 构建阶段尝试从 VCS 推导版本。
+SETUPTOOLS_SCM_PRETEND_VERSION_FOR_NVIDIA_CUROBO="$CUROBO_SCM_VERSION" \
 "$UV_BIN" pip install --python "${repo_root}/.venv/bin/python" --no-build-isolation --no-deps -e "${repo_root}/third_party/RoboTwin/envs/curobo"
 
 copy_missing_resources
