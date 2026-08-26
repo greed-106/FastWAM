@@ -191,6 +191,14 @@ check_disk_space_for_missing_resources() {
   fi
 }
 
+cleanup_staging_dir() {
+  local path="$1"
+
+  if [[ -d "$path" || -L "$path" ]]; then
+    rm -rf --one-file-system -- "$path" || printf 'WARNING: 无法清理临时目录：%s\n' "$path" >&2
+  fi
+}
+
 copy_missing_resources() {
   local index
   local source
@@ -209,16 +217,21 @@ copy_missing_resources() {
     [[ -w "$parent" && -x "$parent" ]] || die "本地 ${label} 的父目录不可写：${parent}"
     staging="$(mktemp -d "${parent}/.fastwam-resource.partial.XXXXXX")" || die "无法为 ${label} 创建临时复制目录。"
 
-    info "正在复制 ${label} 到本地实体目录（可保留临时目录以便故障排查）：${destination}"
-    if ! cp -a --no-preserve=ownership -- "${source}/." "${staging}/"; then
-      die "复制 ${label} 失败；部分数据保留在 ${staging}，脚本未修改目标目录。"
-    fi
-    if [[ -e "$destination" || -L "$destination" ]]; then
-      die "复制 ${label} 期间目标目录出现：${destination}；临时数据保留在 ${staging}。"
-    fi
-    if ! mv -T -- "$staging" "$destination"; then
-      die "无法原子完成 ${label} 的复制；临时数据保留在 ${staging}。"
-    fi
+    (
+      trap 'cleanup_staging_dir "$staging"' EXIT
+      trap 'exit 1' HUP INT TERM
+
+      info "正在复制 ${label} 到本地实体目录：${destination}"
+      if ! cp -a --no-preserve=ownership -- "${source}/." "${staging}/"; then
+        die "复制 ${label} 失败；临时数据将被清理，目标目录未修改。"
+      fi
+      if [[ -e "$destination" || -L "$destination" ]]; then
+        die "复制 ${label} 期间目标目录出现：${destination}；临时数据将被清理，未覆盖目标目录。"
+      fi
+      if ! mv -T -- "$staging" "$destination"; then
+        die "无法原子完成 ${label} 的复制；临时数据将被清理。"
+      fi
+    )
   done
 }
 
@@ -265,6 +278,7 @@ require_command git
 require_command make
 require_command mv
 require_command nvidia-smi
+require_command rm
 require_command rsync
 
 [[ "$(uname -s)" == "Linux" ]] || die "仅支持 Linux。"
