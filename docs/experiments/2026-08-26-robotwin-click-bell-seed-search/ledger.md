@@ -5,7 +5,7 @@
 - 稳定项目目录：`docs/experiments/2026-08-26-robotwin-click-bell-seed-search/`
 - 启动日期：2026-08-26
 - 当前状态：本实验阶段完成。正式结果已逐记录核验；正常 worker 退出的收尾修复已通过双 worker smoke test 验证；成功 seed 清单已回填。
-- 任务书：[任务书.md](任务书.md)
+- 任务书：[plan.md](plan.md)
 
 ## 目标
 
@@ -39,7 +39,7 @@
 | 2026-08-26 23:18 +08:00 | 正式搜索收尾失败 | 所有目标结果已写入后，worker 正常以 exit code 0 退出；主进程在读取最后完成消息前将其误判为失败并返回非零。未重跑，保留结果与日志，准备一次最小修复。 |
 | 2026-08-26 23:24 +08:00 | 提交收尾修复验证 | 修复仅排除已报告 `done` 的正常 worker；以 GPU 2、3、clean、1 个环境 seed、1 次 rollout 启动双 worker smoke test。运行目录：`evaluate_results/robotwin/seed_search/click_bell_multiworker_smoke_20260826/`。 |
 | 2026-08-26 23:26 +08:00 | 收尾修复验证完成 | GPU 2 先正常退出，GPU 3 完成唯一候选后正常收尾，命令退出码为 0。 |
-| 2026-08-26 | 正式结果核验与总结 | 直接核验 clean/random 各 10 条入选记录均为专家通过、base/policy seed `42`、5/5 rollout 成功；新增 [实验总结.md](实验总结.md)。 |
+| 2026-08-26 | 正式结果核验与总结 | 直接核验 clean/random 各 10 条入选记录均为专家通过、base/policy seed `42`、5/5 rollout 成功；新增 [summary.md](summary.md)。 |
 | 2026-08-27 | 增加成功 seed 清单 | 搜索脚本在结束时生成 `successful-seeds.yaml`，仅收录已入选且全部 rollout 成功的记录；已由正式结果回填该文件，未重新启动 GPU 仿真。 |
 
 ## 完成项
@@ -71,20 +71,20 @@ random 阶段的环境 seed `4300010` 和 `4300011` 未通过专家筛选，原�
 - seed 保持上游默认语义：FastWAM 外部 base seed 默认是 `42`，上游起始环境 seed 为 `100000 × (1+42)=4300000`，之后连续递增。默认枚举 `4300000…4300999` 共 1000 个环境 seed，策略采样 seed 保持为 `42`。
 - clean 与 random 分别各需要 10 个高质量 seed；不要求同一个逻辑 seed 同时通过两阶段。
 - 每个候选在对应阶段共执行 5 次策略 rollout；只有 5/5 成功才入选。
-- `successful-seeds.yaml` 只列出已入选且 5/5 成功的环境 seed，按数值升序排列；它同时记录任务、权重、环境 seed 起点、固定策略采样 seed、搜索上限、成功判定以及每阶段的任务配置和指令类型。
-- YAML 中的 `policy_sampling.mode: fixed` 表示 5 次 rollout 沿用同一个策略采样 seed `42`；它们验证独立环境重置/执行的稳定性，不表示已经覆盖多种扩散采样噪声。
+- `successful-seeds.yaml` 仅记录跨服务器复测所需的任务、相对权重路径、策略采样 seed、复测次数、每阶段任务配置/指令类型和入选环境 seed；可由这些信息推导或不影响复测的字段不重复保存。
+- YAML 的单一 `policy_seed: 42` 表示 5 次 rollout 沿用同一个策略采样 seed；它们验证独立环境重置/执行的稳定性，不表示已经覆盖多种扩散采样噪声。
 - clean=`seen`、random=`unseen` 是本实验显式实现的阶段语言映射；当前通用入口实际默认两个阶段都是 `unseen`。显式统一参数才覆盖本实验映射。
 - 专家规划可行性检查与策略成功判定分开记录。专家失败或运行异常不应被写成策略失败成功率，也不能绕过 1000 候选上限。
 - 正式搜索的选中顺序按结果到达主进程的顺序记录；并行中的额外候选可在阶段达标后完成，但不改变已选的前 10 个 seed。
 
 ## 产物位置
 
-- 协议与参数定义：`docs/experiments/2026-08-26-robotwin-click-bell-seed-search/任务书.md`
+- 协议与参数定义：`docs/experiments/2026-08-26-robotwin-click-bell-seed-search/plan.md`
 - 账本：本文件。
 - 正式搜索结果与成功 seed 清单：`evaluate_results/robotwin/seed_search/click_bell_seed42_clean_random_20260826/`（其中 `successful-seeds.yaml` 已完成并核验）。
 - smoke test 结果：`evaluate_results/robotwin/seed_search/click_bell_20260826_230053/`。
 - 收尾修复 smoke test：`evaluate_results/robotwin/seed_search/click_bell_multiworker_smoke_20260826/`。
-- 实验总结：[实验总结.md](实验总结.md)。
+- 实验总结：[summary.md](summary.md)。
 
 ## 下一步
 

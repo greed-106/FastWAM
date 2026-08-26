@@ -8,7 +8,7 @@
 
 每个入选 seed 都通过专家可行性筛选，并在对应阶段完成 5/5 次策略 rollout 成功。clean 使用本实验显式设定的 `seen` 指令，random 使用 `unseen` 指令。
 
-机器可读清单已写入 `evaluate_results/robotwin/seed_search/click_bell_seed42_clean_random_20260826/successful-seeds.yaml`。它记录任务、权重、环境 seed 起点、固定策略采样 seed、5/5 判定条件及每阶段入选 seed。
+机器可读清单已写入 `evaluate_results/robotwin/seed_search/click_bell_seed42_clean_random_20260826/successful-seeds.yaml`。它仅记录跨服务器复测所需的任务、相对权重路径、策略采样 seed、复测次数、阶段配置及入选环境 seed。
 
 ## 实际执行
 
@@ -23,7 +23,7 @@
 
 ## 实现与验证
 
-新增 `experiments/robotwin/search_robotwin_seeds.py`，参数化任务、阶段、GPU、base seed、候选上限、目标数量、复测次数、权重和主要 FastWAM 推理参数。每张 GPU 使用一个持久模型 worker；结果逐候选写入 JSON，并在结束时生成 JSON/CSV 汇总及 `successful-seeds.yaml`。后者仅收录已入选且 5/5 成功的记录，按环境 seed 排序，并明确写出 `policy_sampling.mode: fixed` 与 seed。
+新增 `experiments/robotwin/search_robotwin_seeds.py`，参数化任务、阶段、GPU、base seed、候选上限、目标数量、复测次数、权重和主要 FastWAM 推理参数。每张 GPU 使用一个持久模型 worker；结果逐候选写入 JSON，并在结束时生成 JSON/CSV 汇总及 `successful-seeds.yaml`。后者仅收录已入选且 5/5 成功的环境 seed，并保留跨服务器复测所需的最小参数集。
 
 正式搜索的数据结果全部落盘且经逐记录核验。收尾时发现主进程把已报告完成的正常 worker 误判为异常退出，导致该次命令返回非零；这不影响候选结果。修复后，以两个 worker、一个候选的针对性 smoke test 验证了“一个 worker 先正常退出、另一个完成任务”的收尾路径，退出码为 0。
 
@@ -38,6 +38,6 @@
 ## 主要产物
 
 - 正式运行配置与逐候选结果：`evaluate_results/robotwin/seed_search/click_bell_seed42_clean_random_20260826/`
-- 成功 seed 清单：`evaluate_results/robotwin/seed_search/click_bell_seed42_clean_random_20260826/successful-seeds.yaml`（SHA256：`39e84880e56b3602729b4e53497c8400bde0a5591aa3e5787e381e6c94d61082`）。
+- 成功 seed 清单：`evaluate_results/robotwin/seed_search/click_bell_seed42_clean_random_20260826/successful-seeds.yaml`（SHA256：`d697d2aee071959838259a67a6833b30a8435ee0769e66cffe1d549ced13f9b5`）。
 - 正式汇总：`summary.json`、`summary.csv`（SHA256 分别为 `0d0738fbf8eba493bb205fd770e195c1118e4559e5aa2e0c9bed62f095162973`、`0e8d8649c0d3d56dcb8f78553cf82420429ce6beadae9e7aaffe90d0e71bc709`）。
-- 当前搜索脚本 SHA256：`a4d2bee0f640b3110bd4ea1816f1db0165a68bcdac9d494a7d389788064797e4`。
+- 当前搜索脚本 SHA256：`aba6825227fdef53fe1f85a3d5922f42280c444dc9e000fa12c12dd9e1eeada2`。
