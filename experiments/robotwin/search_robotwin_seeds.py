@@ -23,6 +23,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CKPT = PROJECT_ROOT / "checkpoints" / "fastwam_release" / "robotwin_uncond_3cam_384.pt"
@@ -38,6 +40,13 @@ def _atomic_json(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
     temporary.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    os.replace(temporary, path)
+
+
+def _atomic_yaml(path: Path, payload: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    temporary.write_text(yaml.safe_dump(payload, allow_unicode=True, sort_keys=False), encoding="utf-8")
     os.replace(temporary, path)
 
 
@@ -178,6 +187,63 @@ def _write_summary(output_dir: Path, config: dict[str, Any], selected: dict[str,
         writer.writerows(rows)
 
 
+def _write_successful_seeds(output_dir: Path, config: dict[str, Any]) -> None:
+    records = _all_result_records(output_dir, config["phases"])
+    phases: dict[str, dict[str, Any]] = {}
+    for phase in config["phases"]:
+        selected_records = sorted(
+            (
+                record
+                for record in records
+                if record.get("phase") == phase
+                and record.get("selected")
+                and record.get("all_rollouts_success")
+            ),
+            key=lambda record: int(record["environment_seed"]),
+        )
+        example = selected_records[0] if selected_records else {}
+        phases[phase] = {
+            "task_config": example.get("task_config", PHASE_TO_TASK_CONFIG[phase]),
+            "instruction_type": example.get(
+                "instruction_type", config["instruction_type"] or PHASE_TO_INSTRUCTION[phase]
+            ),
+            "successful_seeds": [
+                {
+                    "environment_seed": record["environment_seed"],
+                    "consecutive_successes": sum(
+                        bool(rollout.get("success")) for rollout in record.get("rollouts", [])
+                    ),
+                    "result_file": str(
+                        _result_path(output_dir, phase, record["environment_seed"]).relative_to(output_dir)
+                    ),
+                }
+                for record in selected_records
+            ],
+        }
+
+    _atomic_yaml(
+        output_dir / "successful-seeds.yaml",
+        {
+            "schema_version": 1,
+            "task_name": config["task_name"],
+            "checkpoint": config["ckpt"],
+            "dataset_stats_path": config["dataset_stats_path"],
+            "base_seed": config["base_seed"],
+            "environment_seed_start": config["environment_seed_start"],
+            "policy_sampling": {"mode": "fixed", "seed": config["base_seed"]},
+            "success_criterion": {
+                "expert_check_required": True,
+                "required_consecutive_successes": config["repeats"],
+            },
+            "search": {
+                "max_seed_attempts": config["max_seed_attempts"],
+                "target_good_seeds_per_phase": config["target_good_seeds"],
+            },
+            "phases": phases,
+        },
+    )
+
+
 def _safe_close(env: Any, *, clear_cache: bool = False) -> None:
     try:
         env.close_env(clear_cache=clear_cache)
@@ -193,7 +259,6 @@ def _prepare_runtime(config: dict[str, Any]) -> dict[str, Any]:
     if str(PROJECT_ROOT) not in sys.path:
         sys.path.insert(0, str(PROJECT_ROOT))
 
-    import yaml
     from script import eval_policy as official_eval
 
     task_config_path = robotwin_root / "task_config" / PHASE_TO_TASK_CONFIG[config["phases"][0]]
@@ -615,6 +680,7 @@ def main() -> None:
                 worker.join()
 
     _write_summary(output_dir, config, selected)
+    _write_successful_seeds(output_dir, config)
     if worker_error is not None:
         raise RuntimeError(worker_error)
     log(f"finished summary={output_dir / 'summary.json'}")
