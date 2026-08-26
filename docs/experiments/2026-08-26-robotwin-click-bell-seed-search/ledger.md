@@ -4,7 +4,7 @@
 
 - 稳定项目目录：`docs/experiments/2026-08-26-robotwin-click-bell-seed-search/`
 - 启动日期：2026-08-26
-- 当前状态：本实验阶段完成。正式结果已逐记录核验；正常 worker 退出的收尾修复已通过双 worker smoke test 验证；成功 seed 清单已回填。
+- 当前状态：原 seed 搜索阶段与跨服务器固定 seed 复现实验均已完成；两阶段全部 20 个指定 seed 均为 5/5 成功。
 - 任务书：[plan.md](plan.md)
 
 ## 目标
@@ -18,6 +18,7 @@
 - 上游评测会自动跳过专家规划失败的环境，直至凑满 episode 数；它不支持有界连续环境 seed 枚举、精确单环境 seed 测试、每 seed 5 次复测或显式 GPU 列表。
 - `experiments/robotwin/run_robotwin_manager.py` 支持 clean/random 阶段串联，但当前只会使用从 GPU 0 开始的连续编号，不能满足默认 GPU `2,3,4,5` 的要求。
 - 新增 `experiments/robotwin/search_robotwin_seeds.py`：显式接收任务、阶段、物理 GPU、base seed、候选上限、目标数量、复测次数、权重和推理参数；每 GPU 保持一个已加载模型的 worker，并逐候选保存 JSON、汇总 JSON/CSV、`successful-seeds.yaml` 和 worker 日志。它按本实验协议显式将 clean 映射为 `seen`、random 映射为 `unseen`，默认关闭评测视频写入。
+- 新增 `experiments/robotwin/validate_robotwin_successful_seeds.py`：读取成功 seed YAML，严格使用其中的任务、权重、固定策略采样 seed、复测次数、阶段配置与环境 seed，在不重新搜索或偏移 seed 的前提下并行输出每个 seed 的成功率。
 
 以上为当前代码能力描述，不代表本阶段已经执行、删除或验证任何策略。
 
@@ -41,6 +42,8 @@
 | 2026-08-26 23:26 +08:00 | 收尾修复验证完成 | GPU 2 先正常退出，GPU 3 完成唯一候选后正常收尾，命令退出码为 0。 |
 | 2026-08-26 | 正式结果核验与总结 | 直接核验 clean/random 各 10 条入选记录均为专家通过、base/policy seed `42`、5/5 rollout 成功；新增 [summary.md](summary.md)。 |
 | 2026-08-27 | 增加成功 seed 清单 | 搜索脚本在结束时生成 `successful-seeds.yaml`，仅收录已入选且全部 rollout 成功的记录；已由正式结果回填该文件，未重新启动 GPU 仿真。 |
+| 2026-08-27 | 跨服务器校验脚本与静态检查 | 新增 YAML 驱动的固定 seed 校验入口；`py_compile`、`--help` 与成功 YAML 加载断言均通过。计划以 GPU `0,1,2,3,4,5,6,7` 对 clean/random 各 10 个 seed 分别运行 5 次，不添加 seed 偏移。 |
+| 2026-08-27 01:15 +08:00 | 跨服务器固定 seed 正式校验完成 | 使用全部 8 张 GPU 读取 `click-bell-successful-seeds.yaml`，直接测试 clean/random 各 10 个环境 seed、每 seed 5 次 rollout。两阶段均为 10 个专家通过 seed、50/50 rollout 成功；全部逐 seed 成功率为 100%。 |
 
 ## 完成项
 
@@ -53,6 +56,8 @@
 - [x] 提交并完成 4-GPU 正式搜索的数据采集与结果核验。
 - [x] 写入最终实验总结。
 - [x] 生成机器可读的成功 seed 清单，并记录固定策略采样 seed 与 5/5 判定条件。
+- [x] 实现并静态验证 YAML 驱动的跨服务器固定 seed 校验入口。
+- [x] 完成跨服务器固定 seed 正式校验并核验 20 条逐 seed 结果。
 
 ## 运行项
 
@@ -73,6 +78,8 @@ random 阶段的环境 seed `4300010` 和 `4300011` 未通过专家筛选，原�
 - 每个候选在对应阶段共执行 5 次策略 rollout；只有 5/5 成功才入选。
 - `successful-seeds.yaml` 仅记录跨服务器复测所需的任务、相对权重路径、策略采样 seed、复测次数、每阶段任务配置/指令类型和入选环境 seed；可由这些信息推导或不影响复测的字段不重复保存。
 - YAML 的单一 `policy_seed: 42` 表示 5 次 rollout 沿用同一个策略采样 seed；它们验证独立环境重置/执行的稳定性，不表示已经覆盖多种扩散采样噪声。
+- 跨服务器校验直接把 YAML 中的 `successful_seeds` 传给 `setup_demo(seed=...)`；不从 `policy_seed` 重算环境 seed，也不因 GPU、worker 或重复次数添加偏移。
+- 跨服务器复现通过条件是 clean 与 random 的全部 20 条 YAML 指定记录均为专家通过、策略 seed `42`、5/5 rollout 成功；本次结果满足该条件。
 - clean=`seen`、random=`unseen` 是本实验显式实现的阶段语言映射；当前通用入口实际默认两个阶段都是 `unseen`。显式统一参数才覆盖本实验映射。
 - 专家规划可行性检查与策略成功判定分开记录。专家失败或运行异常不应被写成策略失败成功率，也不能绕过 1000 候选上限。
 - 正式搜索的选中顺序按结果到达主进程的顺序记录；并行中的额外候选可在阶段达标后完成，但不改变已选的前 10 个 seed。
@@ -84,8 +91,9 @@ random 阶段的环境 seed `4300010` 和 `4300011` 未通过专家筛选，原�
 - 正式搜索结果与成功 seed 清单：`evaluate_results/robotwin/seed_search/click_bell_seed42_clean_random_20260826/`（其中 `successful-seeds.yaml` 已完成并核验）。
 - smoke test 结果：`evaluate_results/robotwin/seed_search/click_bell_20260826_230053/`。
 - 收尾修复 smoke test：`evaluate_results/robotwin/seed_search/click_bell_multiworker_smoke_20260826/`。
+- 跨服务器校验结果：`evaluate_results/robotwin/seed_validation/click_bell_cross_server_20260827/`；`summary.json` SHA256 为 `1c0344c67c05f6d73fc036bf68c3e2af8bb37ee4a1118230ab85cebd354522d2`，`summary.csv` SHA256 为 `72b637dee1f2061d1eec160947294c99256a70eb14d88e949355ef07e5283132`。
 - 实验总结：[summary.md](summary.md)。
 
 ## 下一步
 
-本实验阶段无待执行项。后续若测试其他任务、权重或语言条件，应新建独立稳定实验目录，复用本脚本的显式参数并重新记录账本。
+本实验阶段无待执行项。后续若测试其他任务、权重、语言条件或策略采样 seed，应新建独立稳定实验目录，复用本脚本的显式参数并重新记录账本。

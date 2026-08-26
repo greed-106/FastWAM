@@ -10,6 +10,17 @@
 
 机器可读清单已写入 `evaluate_results/robotwin/seed_search/click_bell_seed42_clean_random_20260826/successful-seeds.yaml`。它仅记录跨服务器复测所需的任务、相对权重路径、策略采样 seed、复测次数、阶段配置及入选环境 seed。
 
+## 跨服务器复现
+
+2026-08-27 使用 `click-bell-successful-seeds.yaml` 在另一台服务器上完成固定 seed 校验。校验直接把 YAML 中的环境 seed `4300000` 至 `4300009` 传给 RoboTwin；策略采样 seed 始终为 `42`，没有添加 GPU、worker 或重复次数偏移。使用 GPU `0,1,2,3,4,5,6,7` 并行运行，每个阶段每个 seed 执行 5 次 rollout。
+
+| 阶段 | seed 数 | 专家通过 | 策略 rollout 成功 | 每个 seed 成功率 |
+| --- | ---: | ---: | ---: | --- |
+| clean | 10 | 10/10 | 50/50 | 全部 5/5（100%） |
+| random | 10 | 10/10 | 50/50 | 全部 5/5（100%） |
+
+因此，在固定策略采样 seed `42` 的协议下，原实验的 20 个阶段-seed 组合均在新服务器上完整复现。逐 seed JSON、汇总 JSON/CSV 与 worker 日志位于 `evaluate_results/robotwin/seed_validation/click_bell_cross_server_20260827/`；汇总文件 SHA256 分别为 `1c0344c67c05f6d73fc036bf68c3e2af8bb37ee4a1118230ab85cebd354522d2` 和 `72b637dee1f2061d1eec160947294c99256a70eb14d88e949355ef07e5283132`。
+
 ## 实际执行
 
 使用发布权重 `robotwin_uncond_3cam_384.pt`，在 GPU 2、3、4、5 上并行搜索。外部 base seed `42` 按 RoboTwin 的默认规则给出首个环境 seed `4300000`；候选环境 seed 之后连续递增，搜索上限设为 1000。
