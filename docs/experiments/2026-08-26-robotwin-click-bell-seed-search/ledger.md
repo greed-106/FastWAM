@@ -76,7 +76,7 @@ random 阶段的环境 seed `4300010` 和 `4300011` 未通过专家筛选，原�
 - seed 保持上游默认语义：FastWAM 外部 base seed 默认是 `42`，上游起始环境 seed 为 `100000 × (1+42)=4300000`，之后连续递增。默认枚举 `4300000…4300999` 共 1000 个环境 seed，策略采样 seed 保持为 `42`。
 - clean 与 random 分别各需要 10 个高质量 seed；不要求同一个逻辑 seed 同时通过两阶段。
 - 每个候选在对应阶段共执行 5 次策略 rollout；只有 5/5 成功才入选。
-- `successful-seeds.yaml` 仅记录跨服务器复测所需的任务、相对权重路径、策略采样 seed、复测次数、每阶段任务配置/指令类型和入选环境 seed；可由这些信息推导或不影响复测的字段不重复保存。
+- `successful-seeds.yaml` 仅记录跨服务器复测所需的任务、相对权重路径、策略采样 seed、每个 seed 的连续成功次数、每阶段任务配置/指令类型和入选环境 seed；可由这些信息推导或不影响复测的字段不重复保存。
 - YAML 的单一 `policy_seed: 42` 表示 5 次 rollout 沿用同一个策略采样 seed；它们验证独立环境重置/执行的稳定性，不表示已经覆盖多种扩散采样噪声。
 - 跨服务器校验直接把 YAML 中的 `successful_seeds` 传给 `setup_demo(seed=...)`；不从 `policy_seed` 重算环境 seed，也不因 GPU、worker 或重复次数添加偏移。
 - 跨服务器复现通过条件是 clean 与 random 的全部 20 条 YAML 指定记录均为专家通过、策略 seed `42`、5/5 rollout 成功；本次结果满足该条件。

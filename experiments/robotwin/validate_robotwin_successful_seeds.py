@@ -46,7 +46,7 @@ def _load_manifest(path: Path) -> dict[str, Any]:
     if not isinstance(manifest, dict):
         raise ValueError("Manifest must be a YAML mapping.")
 
-    required = {"task_name", "checkpoint", "policy_seed", "repeats", "phases"}
+    required = {"task_name", "checkpoint", "policy_seed", "phases"}
     missing = required - set(manifest)
     if missing:
         raise ValueError(f"Manifest is missing required fields: {sorted(missing)}")
@@ -56,13 +56,6 @@ def _load_manifest(path: Path) -> dict[str, Any]:
         raise ValueError("Manifest checkpoint must be a non-empty string.")
     if isinstance(manifest["policy_seed"], bool) or not isinstance(manifest["policy_seed"], int):
         raise ValueError("Manifest policy_seed must be an integer.")
-    if (
-        isinstance(manifest["repeats"], bool)
-        or not isinstance(manifest["repeats"], int)
-        or manifest["repeats"] <= 0
-    ):
-        raise ValueError("Manifest repeats must be a positive integer.")
-
     phases = manifest["phases"]
     if not isinstance(phases, dict) or not phases:
         raise ValueError("Manifest phases must be a non-empty mapping.")
@@ -79,9 +72,22 @@ def _load_manifest(path: Path) -> dict[str, Any]:
         seeds = phase_config.get("successful_seeds")
         if not isinstance(seeds, list) or not seeds:
             raise ValueError(f"Manifest phase {phase!r} must contain successful_seeds.")
-        if any(isinstance(seed, bool) or not isinstance(seed, int) for seed in seeds):
-            raise ValueError(f"Manifest phase {phase!r} seeds must be integers.")
-        if len(seeds) != len(set(seeds)):
+        if any(not isinstance(seed, dict) for seed in seeds):
+            raise ValueError(f"Manifest phase {phase!r} seeds must be mappings.")
+        environment_seeds = []
+        for seed in seeds:
+            environment_seed = seed.get("environment_seed")
+            consecutive_successes = seed.get("consecutive_successes")
+            if isinstance(environment_seed, bool) or not isinstance(environment_seed, int):
+                raise ValueError(f"Manifest phase {phase!r} environment_seed must be an integer.")
+            if (
+                isinstance(consecutive_successes, bool)
+                or not isinstance(consecutive_successes, int)
+                or consecutive_successes <= 0
+            ):
+                raise ValueError(f"Manifest phase {phase!r} consecutive_successes must be positive.")
+            environment_seeds.append(environment_seed)
+        if len(environment_seeds) != len(set(environment_seeds)):
             raise ValueError(f"Manifest phase {phase!r} contains duplicate seeds.")
     return manifest
 
@@ -126,7 +132,6 @@ def _write_summary(output_dir: Path, config: dict[str, Any], records: list[dict[
             "updated_at": search._now(),
             "task_name": config["task_name"],
             "policy_seed": config["base_seed"],
-            "repeats": config["repeats"],
             "phases": phases_summary,
         },
     )
@@ -136,11 +141,13 @@ def _write_summary(output_dir: Path, config: dict[str, Any], records: list[dict[
         writer.writerows(rows)
 
 
-def _evaluate(runtime: dict[str, Any], config: dict[str, Any], phase: str, environment_seed: int, gpu_id: str) -> dict[str, Any]:
-    result = search._evaluate_candidate(runtime, config, phase, environment_seed, gpu_id)
+def _evaluate(
+    runtime: dict[str, Any], config: dict[str, Any], phase: str, environment_seed: int, repeats: int, gpu_id: str
+) -> dict[str, Any]:
+    result = search._evaluate_candidate(runtime, {**config, "repeats": repeats}, phase, environment_seed, gpu_id)
     result["rollout_count"] = len(result["rollouts"])
     result["rollout_successes"] = sum(bool(rollout["success"]) for rollout in result["rollouts"])
-    result["success_rate"] = result["rollout_successes"] / config["repeats"]
+    result["success_rate"] = result["rollout_successes"] / repeats
     return result
 
 
@@ -159,9 +166,9 @@ def _worker(config: dict[str, Any], gpu_id: str, tasks: Any, messages: Any, log_
             return
 
         while (task := tasks.get()) is not None:
-            phase, environment_seed = task
+            phase, environment_seed, repeats = task
             try:
-                messages.put({"kind": "result", "result": _evaluate(runtime, config, phase, environment_seed, gpu_id)})
+                messages.put({"kind": "result", "result": _evaluate(runtime, config, phase, environment_seed, repeats, gpu_id)})
             except Exception:
                 messages.put({"kind": "worker_error", "gpu_id": gpu_id, "error": traceback.format_exc()})
                 return
@@ -214,7 +221,6 @@ def _make_config(args: argparse.Namespace) -> dict[str, Any]:
         "phases": list(manifest["phases"]),
         "gpu_ids": _parse_gpu_ids(args.gpu_ids),
         "base_seed": manifest["policy_seed"],
-        "repeats": manifest["repeats"],
         "ckpt": str(checkpoint),
         "dataset_stats_path": str(search._resolve_dataset_stats(checkpoint, args.dataset_stats_path)),
         "output_dir": str(output_dir),
@@ -249,12 +255,12 @@ def main() -> None:
     search._atomic_json(output_dir / "run_config.json", {"created_at": search._now(), **config})
 
     tasks_to_run = [
-        (phase, environment_seed)
+        (phase, seed["environment_seed"], seed["consecutive_successes"])
         for phase, phase_config in config["manifest"]["phases"].items()
-        for environment_seed in phase_config["successful_seeds"]
+        for seed in phase_config["successful_seeds"]
     ]
     print(
-        f"validating task={config['task_name']} seeds={len(tasks_to_run)} repeats={config['repeats']} "
+        f"validating task={config['task_name']} seeds={len(tasks_to_run)} "
         f"gpus={','.join(config['gpu_ids'])}",
         flush=True,
     )
@@ -307,7 +313,7 @@ def main() -> None:
                 print(
                     f"phase={result['phase']} seed={result['environment_seed']} "
                     f"success_rate={result['success_rate']:.1%} "
-                    f"({result['rollout_successes']}/{config['repeats']})",
+                    f"({result['rollout_successes']}/{result['rollout_count']})",
                     flush=True,
                 )
             elif message["kind"] == "worker_error":

@@ -8,7 +8,7 @@
 
 每个入选 seed 都通过专家可行性筛选，并在对应阶段完成 5/5 次策略 rollout 成功。clean 使用本实验显式设定的 `seen` 指令，random 使用 `unseen` 指令。
 
-机器可读清单已写入 `evaluate_results/robotwin/seed_search/click_bell_seed42_clean_random_20260826/successful-seeds.yaml`。它仅记录跨服务器复测所需的任务、相对权重路径、策略采样 seed、复测次数、阶段配置及入选环境 seed。
+机器可读清单已写入 `evaluate_results/robotwin/seed_search/click_bell_seed42_clean_random_20260826/successful-seeds.yaml`。它仅记录跨服务器复测所需的任务、相对权重路径、策略采样 seed、每个 seed 的连续成功次数、阶段配置及入选环境 seed。
 
 ## 跨服务器复现
 

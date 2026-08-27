@@ -207,7 +207,13 @@ def _write_successful_seeds(output_dir: Path, config: dict[str, Any]) -> None:
             "instruction_type": example.get(
                 "instruction_type", config["instruction_type"] or PHASE_TO_INSTRUCTION[phase]
             ),
-            "successful_seeds": [record["environment_seed"] for record in selected_records],
+            "successful_seeds": [
+                {
+                    "environment_seed": record["environment_seed"],
+                    "consecutive_successes": len(record["rollouts"]),
+                }
+                for record in selected_records
+            ],
         }
 
     _atomic_yaml(
@@ -216,7 +222,6 @@ def _write_successful_seeds(output_dir: Path, config: dict[str, Any]) -> None:
             "task_name": config["task_name"],
             "checkpoint": os.path.relpath(config["ckpt"], PROJECT_ROOT),
             "policy_seed": config["base_seed"],
-            "repeats": config["repeats"],
             "phases": phases,
         },
     )

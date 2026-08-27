@@ -75,7 +75,7 @@ seed 搜索默认关闭评测视频写入，以免大量候选消耗无关的磁
 
 - 生效参数和权重、配置、代码版本信息；
 - 逐候选、逐次 rollout 的 JSON/CSV 记录，含阶段、外部 base seed、策略采样 seed、环境 seed、专家检查结果、成功结果、错误摘要、GPU 与日志路径；
-- `successful-seeds.yaml`：仅收录已入选且所有 rollout 成功的 seed，并记录跨服务器复测所需的任务、相对权重路径、策略采样 seed、复测次数、阶段任务配置和指令类型；
+- `successful-seeds.yaml`：仅收录已入选且所有 rollout 成功的 seed，并记录跨服务器复测所需的任务、相对权重路径、策略采样 seed、每个 seed 的连续成功次数、阶段任务配置和指令类型；
 - clean 与 random 各自的运行汇总；
 - worker 与调度器日志。
 
