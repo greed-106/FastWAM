@@ -1,8 +1,9 @@
 """Bounded, multi-GPU RoboTwin seed search for one FastWAM policy.
 
-The script keeps RoboTwin's normal seed convention: ``--seed`` is the
-external/base seed, and candidate environment seeds begin at
-``100000 * (1 + seed)`` and increase by one.
+By default, ``--seed`` is the RoboTwin external/base seed and candidate
+environment seeds begin at ``100000 * (1 + seed)``. An explicit
+``--environment-seed-start`` changes only the candidate sequence; policy
+sampling continues to use ``--seed``.
 """
 
 from __future__ import annotations
@@ -471,6 +472,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--phases", default="clean,random", help="Comma-separated subset of clean,random.")
     parser.add_argument("--gpu-ids", default="2,3,4,5", help="Comma-separated physical GPU ids.")
     parser.add_argument("--seed", type=int, default=42, help="FastWAM/RoboTwin external base seed.")
+    parser.add_argument("--environment-seed-start", type=int, default=None)
     parser.add_argument("--max-seed-attempts", type=int, default=1000)
     parser.add_argument("--target-good-seeds", type=int, default=10)
     parser.add_argument("--repeats", type=int, default=5)
@@ -520,12 +522,15 @@ def _make_config(args: argparse.Namespace) -> dict[str, Any]:
             / "seed_search"
             / f"{args.task_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         )
+    environment_seed_start = args.environment_seed_start
+    if environment_seed_start is None:
+        environment_seed_start = _environment_seed_start(args.seed)
     return {
         "task_name": args.task_name,
         "phases": phases,
         "gpu_ids": gpu_ids,
         "base_seed": args.seed,
-        "environment_seed_start": _environment_seed_start(args.seed),
+        "environment_seed_start": environment_seed_start,
         "max_seed_attempts": args.max_seed_attempts,
         "target_good_seeds": args.target_good_seeds,
         "repeats": args.repeats,

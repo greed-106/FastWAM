@@ -100,6 +100,13 @@ def _command(args: argparse.Namespace, task_name: str, gpu_id: str, output_dir: 
         gpu_id,
         "--seed",
         str(args.seed),
+    ]
+    if args.environment_seed_start is not None:
+        command.extend([
+            "--environment-seed-start",
+            str(args.environment_seed_start),
+        ])
+    command.extend([
         "--max-seed-attempts",
         str(args.max_seed_attempts),
         "--target-good-seeds",
@@ -110,7 +117,7 @@ def _command(args: argparse.Namespace, task_name: str, gpu_id: str, output_dir: 
         args.ckpt,
         "--output-dir",
         str(output_dir),
-    ]
+    ])
     if args.dataset_stats_path:
         command.extend(["--dataset-stats-path", args.dataset_stats_path])
     return command
@@ -136,6 +143,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--task-timeout-seconds", type=int, default=10 * 60 * 60)
     parser.add_argument("--poll-interval-seconds", type=float, default=10.0)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--environment-seed-start", type=int, default=None)
     parser.add_argument("--max-seed-attempts", type=int, default=1000)
     parser.add_argument("--target-good-seeds", type=int, default=10)
     parser.add_argument("--repeats", type=int, default=5)

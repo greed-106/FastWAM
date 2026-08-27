@@ -4,7 +4,7 @@
 
 - 稳定项目目录：`docs/experiments/2026-08-27-robotwin-all-tasks-seed-search/`
 - 启动日期：2026-08-27
-- 当前状态：初始静态批处理已按用户指示停止且其启动脚本已删除；SQLite 全局队列中的 2 个任务已完成，6 个任务仍在运行。
+- 当前状态：初始静态批处理已按用户指示停止且其启动脚本已删除；原 SQLite 队列有 4 个完成、3 个因停滞而人工终止、1 个 native worker 异常失败；环境 seed 跳过首项的独立重跑队列有 1 个异常失败、2 个仍存活但已停滞。目前没有任务在正常推进。
 - 任务书：[plan.md](plan.md)
 
 ## 目标
@@ -13,7 +13,7 @@
 
 ## 当前代码支持
 
-- `experiments/robotwin/search_robotwin_seeds.py` 支持单个 RoboTwin 任务的有界、可参数化 clean/random seed 搜索，并写入逐候选 JSON、汇总 JSON/CSV 与轻量 `successful-seeds.yaml`。
+- `experiments/robotwin/search_robotwin_seeds.py` 支持单个 RoboTwin 任务的有界、可参数化 clean/random seed 搜索，并写入逐候选 JSON、汇总 JSON/CSV 与轻量 `successful-seeds.yaml`；候选环境起点可单独覆盖，不改变策略采样 seed。
 - `experiments/robotwin/validate_robotwin_successful_seeds.py` 可读取上述 YAML，对其中的固定环境 seed 进行复测。
 - `experiments/robotwin/schedule_robotwin_seed_search.py` 是当前唯一的跨任务 seed 搜索入口；它将 GPU 容量限制、任务超时和 SQLite 队列状态参数化。
 - 旧的 tmux 静态批处理启动器已删除；其历史结果和日志保留，不影响当前 SQLite 队列。
@@ -45,20 +45,29 @@
 | 2026-08-27 17:04 +08:00 | SQLite 全局队列正式启动 | 使用独立会话启动调度器，任务超时为 10 小时、GPU `0–7`、每卡最多两个任务。8 个任务已分别开始于 GPU `0–7`；运行根目录为 `evaluate_results/robotwin/seed_search/global_scheduler_seed42_20260827_170411/`，持久队列为 `evaluate_results/robotwin/seed_search/scheduler.sqlite3`。 |
 | 2026-08-27 17:57 +08:00 | 清理一次性迁移器与旧调度入口 | 确认验证器可读取 42 份非空新版 YAML，且当前运行进程仅调用 SQLite 调度器与搜索入口。删除一次性 `migrate_robotwin_successful_seed_manifests.py` 与 tmux 静态批处理启动器 `launch_robotwin_seed_search_batch.sh`；保留非 seed-search 的常规评测管理器 `run_robotwin_manager.py`。 |
 | 2026-08-27 18:33–18:38 +08:00 | 全局队列完成两项任务 | `stack_blocks_two` 与 `place_burger_fries` 均以 exit code `0` 完成；两任务的 clean/random 均各入选 10 个连续 5/5 成功 seed，已写入各自运行目录的 `successful-seeds.yaml`、summary 和逐候选记录。 |
+| 2026-08-27 18:50 +08:00 | 全局队列完成 `stack_bowls_two` | 该任务以 exit code `0` 完成；clean 入选 10 个、random 入选 10 个连续 5/5 成功 seed（random 共发现 11 个满足 5/5 的候选，按目标仅选前 10 个）。 |
+| 2026-08-27 19:13 +08:00 | 停止三项停滞搜索 | `move_stapler_pad`、`place_mouse_pad` 与 `stamp_seal` 分别在 GPU `0`、`1`、`7` 长时间无新候选落盘且 GPU 利用率为零。按用户指示只向这三个独立搜索进程组发送 `SIGTERM`；原调度器记录 exit code `143`，已落盘日志和结果保留。 |
+| 2026-08-27 19:13 +08:00 | 跳过首个环境 seed 重跑 | 搜索器和全局调度器新增可选 `--environment-seed-start`，默认行为不变。以 policy seed `42`、环境起点 `4300001`、GPU `0,1,7`、每卡一个任务、10 小时超时启动三项重跑；独立队列为 `scheduler_env4300001_retry.sqlite3`，结果根目录为 `global_scheduler_seed42_env4300001_retry_20260827_1914/`。重跑调度器已脱离终端并开始记录任务日志。 |
+| 2026-08-27 19:33 +08:00 | `place_mouse_pad` 重跑异常失败 | GPU `1` 的 worker 在处理完 clean 的 3 个候选和 random 的 3 个候选后，以 exit code `-6` 退出；搜索入口随之以 exit code `1` 结束，独立 SQLite 队列记录为 failed。逐候选结果、`manager.log` 和调度日志均保留。 |
+| 2026-08-27 19:53 +08:00 | 全局队列完成 `stack_bowls_three` | 该任务以 exit code `0` 完成；clean 在 19 个候选中得到 10 个连续 5/5 seed，random 在 35 个候选中发现 11 个 5/5 seed、选取前 10 个，清单已写入任务目录。 |
+| 2026-08-27 20:11 +08:00 | 运行状态核验 | `place_object_scale`（GPU `3`）仍正常推进，clean/random 均已处理 48 个候选但尚无 5/5 seed。重跑的 `move_stapler_pad` 与 `stamp_seal` 分别自 19:27 和 19:22 起无新候选结果，GPU `0`、`7` 利用率为零，进程仍存活，判定为停滞；未擅自终止或重启。 |
+| 2026-08-27 22:02 +08:00 | `place_object_scale` 异常失败 | GPU `3` worker 在 clean/random 各处理 94 个候选、尚无 5/5 seed 后以 exit code `-11` 退出；搜索入口返回 exit code `1`，原 SQLite 队列记录为 failed。逐候选结果、`manager.log` 与调度日志均保留。 |
+| 2026-08-27 22:34 +08:00 | 成功 seed 清单文档归档 | 按用户要求，将 44 个完整任务的 YAML 复制到 `successful-seeds/`，以 `<task>.yaml` 命名；原 `evaluate_results/` 中的清单保留。已逐份核验归档与原文件字节一致，且 clean/random 均含 10 个连续 5/5 seed。6 个未完成任务的部分或缺失清单未归档。 |
 
 ## 运行项
 
-全局调度器以前台单进程方式执行，不使用 tmux；SQLite 队列按本实验稳定目录名区分历史任务，并向指定 GPU 的空闲容量动态派发。`move_stapler_pad`、`place_mouse_pad`、`stack_bowls_two`、`place_object_scale`、`stack_bowls_three` 与 `stamp_seal` 仍在运行；初始批处理的产物保留为历史证据。
+全局调度器以前台单进程方式执行，不使用 tmux；SQLite 队列按本实验稳定目录名区分历史任务，并向指定 GPU 的空闲容量动态派发。原队列的所有任务均已进入终态，其中 `place_object_scale` 已异常失败。重跑队列的 `place_mouse_pad` 已异常失败；`move_stapler_pad`（GPU `0`）和 `stamp_seal`（GPU `7`）进程仍存活但无进度，保留现场等待用户决定。目前没有正常推进的搜索任务。初始批处理的产物保留为历史证据。
 
 ## 失败项与资源问题
 
-外部批处理调度器命令在当前环境不可用；这是环境事实，不是本实验失败。`open_laptop` 与 `put_object_cabinet` 的 native worker 均曾以 exit code `-11` 异常退出，并伴随 pybind11 GIL 断言文本；其配置和结果已保留，旧 `open_laptop` 任务级中断日志已按用户指示删除。
+外部批处理调度器命令在当前环境不可用；这是环境事实，不是本实验失败。`open_laptop` 与 `put_object_cabinet` 的 native worker 均曾以 exit code `-11` 异常退出，并伴随 pybind11 GIL 断言文本；其配置和结果已保留，旧 `open_laptop` 任务级中断日志已按用户指示删除。`move_stapler_pad`、`place_mouse_pad` 与 `stamp_seal` 的原队列 exit code `143` 是本次有依据的人工终止，不作为其 seed 搜索失败结论。跳过首个环境 seed 的 `place_mouse_pad` 重跑中，worker 以 `-6` 退出、搜索入口返回 `1`；`place_object_scale` 的 worker 以 `-11` 退出、搜索入口返回 `1`。其余两个重跑进程仍存活但已停滞，尚未自动干预。
 
 ## 关键决策
 
 - 默认外部/策略采样 seed 为 `42`，对应连续环境 seed `4300000…4300999`；策略 seed 不因 GPU、槽位或 rollout 次数偏移。
 - clean 显式使用 `demo_clean` 与 `seen`，random 显式使用 `demo_randomized` 与 `unseen`。
 - 全局调度器仍通过参数限制每卡并发数；每个任务独占结果目录和 launcher 日志，调度器将调度事件、完成、错误和超时写入 SQLite 与 `scheduler.log`。
+- `--environment-seed-start` 只覆盖候选环境序列；`--seed` 继续同时作为外部/base seed 与策略采样 seed。此次重跑显式保持 `--seed 42`，并从 `4300001` 开始。
 - 一次性 YAML 迁移与 tmux 静态批处理入口均已删除；后续跨任务 seed 搜索只使用 SQLite 全局调度器。常规 RoboTwin 评测的 `run_robotwin_manager.py` 不属于 seed 搜索入口，继续保留。
 - `click_bell` 已在前一稳定实验目录完成 seed 搜索与跨服务器复测，本阶段不重复提交。
 - 用户要求正式批处理启动后由其手动恢复 Codex 查看结果，不做持续状态跟踪；如需观察，采用 `sleep 300` 低频等待。
@@ -67,10 +76,11 @@
 
 - 任务书：[plan.md](plan.md)
 - 账本：本文件。
+- 完整成功 seed 清单归档：`successful-seeds/`（44 份 `<task>.yaml` 副本；原始结果清单保留）。
 - 正式批处理结果：`evaluate_results/robotwin/seed_search/all_tasks_seed42_20260827_021627/`。
 - `open_laptop` 重跑结果：`evaluate_results/robotwin/seed_search/open_laptop_retry_seed42_20260827_102904/`。
 
 ## 下一步
 
-1. 等待 SQLite 队列中的其余 6 个重跑任务进入终态。
+1. 保留 `move_stapler_pad`、`stamp_seal` 的停滞现场，以及 `place_mouse_pad`、`place_object_scale` 的异常日志；等待用户决定是否终止、诊断或以新条件重跑。
 2. 核验每个任务的 YAML、汇总、失败记录和资源异常，再完成 `summary.md`。

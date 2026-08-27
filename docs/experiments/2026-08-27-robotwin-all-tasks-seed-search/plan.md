@@ -50,6 +50,7 @@ uv run --no-sync python experiments/robotwin/schedule_robotwin_seed_search.py \
   --max-tasks-per-gpu 2 \
   --task-timeout-seconds 36000 \
   --seed 42 \
+  --environment-seed-start <environment-seed> \
   --max-seed-attempts 1000 \
   --target-good-seeds 10 \
   --repeats 5 \
@@ -57,3 +58,5 @@ uv run --no-sync python experiments/robotwin/schedule_robotwin_seed_search.py \
 ```
 
 启动后无需由 Codex 持续跟踪；用户可在任务结束后手动恢复会话。若需低频观察运行状态，使用 `sleep 300` 间隔，而非高频轮询。
+
+默认候选环境起点由 `--seed` 推导；仅在需要跳过已知有问题的候选环境时显式设置 `--environment-seed-start`。该参数不改变策略采样 seed。
