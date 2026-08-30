@@ -281,6 +281,18 @@ require_command nvidia-smi
 require_command rm
 require_command rsync
 
+# 系统前提与手动排障参考：
+#
+#   sudo apt-get update
+#   sudo apt-get install -y python3.10 python3.10-dev
+#   uv --version
+#   /usr/local/cuda/bin/nvcc --version
+#   nvidia-smi
+#   test -f /usr/include/python3.10/Python.h
+#
+# 脚本只检查这些主机条件，不使用 apt/sudo，也不替换系统
+# Python 或 CUDA。python3.10-dev 提供编译 CuRobo C++/CUDA 扩展所需的
+# Python.h。其他 GPU 需要同步调整 compute capability 合同和共享缓存。
 [[ "$(uname -s)" == "Linux" ]] || die "仅支持 Linux。"
 case "$(uname -m)" in
   x86_64|amd64) ;;
@@ -324,6 +336,14 @@ export TORCH_CUDA_ARCH_LIST="$REQUIRED_COMPUTE_CAPABILITY"
 
 gpu_count="${#gpu_capability_lines[@]}"
 gpu_details="$(LC_ALL=C nvidia-smi -q)" || die "无法读取 GPU 详细状态。"
+# 多 H100 / NVSwitch 主机的手动排障命令：
+#
+#   systemctl is-active nvidia-fabricmanager
+#   nvidia-smi -q | grep -A2 'Fabric'
+#
+# Fabric Manager 必须与 NVIDIA 驱动完全同版本。服务应为 active，
+# 每张卡的 Fabric State/Status 应为 Completed/Success；否则 PyTorch 可能在
+# cudaGetDeviceCount() 报 Error 802: system not yet initialized。
 fabric_state_lines="$(grep -Ec '^[[:space:]]*State[[:space:]]*:' <<< "$gpu_details" || true)"
 fabric_na_lines="$(grep -Ec '^[[:space:]]*State[[:space:]]*:[[:space:]]*N/A[[:space:]]*$' <<< "$gpu_details" || true)"
 if (( fabric_state_lines > fabric_na_lines )); then
@@ -360,21 +380,55 @@ if (( check_only )); then
   exit 0
 fi
 
+# 手动同步 Python 环境的等价步骤（应在仓库根目录执行）：
+#
+#   export CUDA_HOME=/usr/local/cuda
+#   export PATH="$CUDA_HOME/bin:$PATH"
+#   export TORCH_CUDA_ARCH_LIST=9.0
+#   export UV_CACHE_DIR=/data/shared/FastWAM/uv-cache
+#   export UV_LINK_MODE=copy
+#   uv sync --extra robotwin --locked --offline --no-python-downloads --python 3.10
+#
+# --locked 固定 uv.lock，--offline 禁止回退到网络，UV_LINK_MODE=copy 使
+# .venv 不通过硬链接影响共享缓存。uv.lock 应进入 Git，.venv 不应提交。
 info "使用共享缓存离线创建 Python 环境"
 "$UV_BIN" sync --extra robotwin --locked --offline --no-python-downloads --python "$PYTHON_BIN"
 
 info "编译仓库内的 CuRobo GPU 扩展"
+# 手动编译的等价命令：
+#
+#   CUDA_HOME=/usr/local/cuda \
+#   TORCH_CUDA_ARCH_LIST=9.0 \
+#   SETUPTOOLS_SCM_PRETEND_VERSION_FOR_NVIDIA_CUROBO=0.7.2 \
+#   uv pip install --python .venv/bin/python --no-build-isolation --no-deps \
+#     -e third_party/RoboTwin/envs/curobo
+#
+# CuRobo 源码已在仓库内，无需重新 git clone。--no-build-isolation 让 CUDAExtension
+# 使用 .venv 中的 PyTorch 头文件和库；固定 SCM 版本是因为源码快照没有独立
+# .git 元数据。生成的 src/curobo/curobolib/*.so 与机器环境绑定且已被 Git 忽略。
 # CuRobo 是随 FastWAM 跟踪的源码快照，不包含独立 Git 元数据；显式提供其
 # 已验证发布版本，避免 setuptools-scm 在 editable 构建阶段尝试从 VCS 推导版本。
 SETUPTOOLS_SCM_PRETEND_VERSION_FOR_NVIDIA_CUROBO="$CUROBO_SCM_VERSION" \
 "$UV_BIN" pip install --python "${repo_root}/.venv/bin/python" --no-build-isolation --no-deps -e "${repo_root}/third_party/RoboTwin/envs/curobo"
 
+# 手动复制资源的等价命令仅适用于三个目标路径都不存在的新工作副本：
+#
+#   cp -a --no-preserve=ownership /data/shared/FastWAM/third_party/RoboTwin/assets third_party/RoboTwin/
+#   cp -a --no-preserve=ownership /data/shared/FastWAM/third_party/RoboTwin/checkpoints third_party/RoboTwin/
+#   cp -a --no-preserve=ownership /data/shared/FastWAM/checkpoints .
+#
+# 正式脚本更严格：它使用临时目录原子完成缺失资源的复制；若目标已存在，
+# 则通过校验和 rsync dry-run 确认与共享副本一致，绝不覆盖或合并差异内容。
 copy_missing_resources
 verify_resource_layout "$repo_root" "本地资源"
 for resource_index in "${!missing_sources[@]}"; do
   compare_resource_tree "${missing_sources[$resource_index]}" "${missing_destinations[$resource_index]}" "${missing_labels[$resource_index]}" "${missing_exclude_temp[$resource_index]}"
 done
 
+# 手动验证时，先执行 `uv pip check --python .venv/bin/python`，再用单张 GPU
+# 导入 torch 和 curobo.curobolib 的 geom_cu/kinematics_fused_cu。必须先加载 torch，
+# 才能让 CuRobo 扩展正确解析 libtorch/libc10。下方检查还会严格核对
+# PyTorch 2.7.1+cu128、CUDA 12.8 和 H100 compute capability 9.0。
 info "验证 Python、PyTorch CUDA 与 CuRobo"
 "$UV_BIN" pip check --python "${repo_root}/.venv/bin/python"
 FASTWAM_EXPECTED_TORCH_VERSION="$REQUIRED_TORCH_VERSION" \

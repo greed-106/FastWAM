@@ -1,8 +1,8 @@
-# FastWAM / RoboTwin GPU 环境
+# FastWAM / RoboTwin GPU 环境建立与使用指南
 
-本文档说明如何在本仓库建立可复现的 FastWAM + RoboTwin 评测环境。环境使用 **uv**、CUDA 12.8 PyTorch 和仓库内的 **CuRobo GPU 规划器**；运动规划不使用复制版中的 MPlib 回退补丁。
+本文档说明如何在本仓库建立可复现的 FastWAM + RoboTwin 评测环境。环境使用 **uv**、CUDA 12.8 PyTorch 和仓库内的 **CuRobo GPU 规划器**。
 
-运行根目录固定为 `third_party/RoboTwin`。代码、任务配置和 CuRobo 源码均从当前工作目录读取；依赖缓存与可共享的大资源统一存放在 `/data/shared/FastWAM`。RoboTwin 仍使用仓库内的相对资源路径，新的工作副本应按本文第 6 节将共享副本复制到自身目录；复制完成后的评测不依赖原始资源目录或共享盘中的资源文件。
+运行根目录固定为 `third_party/RoboTwin`。代码、任务配置和 CuRobo 源码均从当前工作目录读取；依赖缓存与可共享的大资源统一存放在 `/data/shared/FastWAM`。RoboTwin 仍使用仓库内的相对资源路径，新的工作副本由本文第 3 节的一键脚本将共享副本复制到自身目录；复制完成后的评测不依赖原始资源目录或共享盘中的资源文件。
 
 ## 1. 已固定的版本与约束
 
@@ -19,32 +19,11 @@
 
 ## 2. 系统前提
 
-以下命令以 Ubuntu/Debian、H100 为例。其他 GPU 应将 `TORCH_CUDA_ARCH_LIST` 改为对应 compute capability。
+一键脚本面向 Linux x86_64、CPython 3.10、CUDA Toolkit 12.8 和 H100（compute capability 9.0）主机。Python 开发头文件是 CuRobo 编译的必需项；多 H100 / NVSwitch 主机还需要与驱动版本一致且已完成初始化的 NVIDIA Fabric Manager。
 
-```bash
-sudo apt-get update
-sudo apt-get install -y python3.10 python3.10-dev
+脚本会检查这些系统条件，但不使用 `apt`、`sudo` 或替换系统 Python/CUDA。完整的检查顺序、手动命令和原理说明保留在 `scripts/setup_vcl_env.sh` 的对应注释中。
 
-uv --version
-/usr/local/cuda/bin/nvcc --version
-nvidia-smi
-test -f /usr/include/python3.10/Python.h && echo "Python 开发头文件已就绪"
-```
-
-`python3.10-dev` 不是可选项：CuRobo 编译 C++/CUDA 扩展时需要 `Python.h`。
-
-### 多 H100 / NVSwitch 主机
-
-多 GPU NVSwitch 主机还需要与驱动**完全同版本**的 NVIDIA Fabric Manager。否则 PyTorch 常在 `cudaGetDeviceCount()` 报 `Error 802: system not yet initialized`。
-
-```bash
-systemctl is-active nvidia-fabricmanager
-nvidia-smi -q | grep -A2 'Fabric'
-```
-
-服务应为 `active`，每张卡的 `Fabric State` 应为 `Completed`、`Status` 应为 `Success`。例如驱动为 `610.43.02` 时，Fabric Manager 也必须为 `610.43.02`；不可混用其他主版本。首次安装后通常需要重启主机，让驱动、NVSwitch 和 Fabric Manager 按正确顺序初始化。
-
-## 3. 用 uv 创建环境
+## 3. 一键配置环境
 
 推荐在仓库根目录一键执行：
 
@@ -60,61 +39,9 @@ bash scripts/setup_vcl_env.sh
 bash scripts/setup_vcl_env.sh --check
 ```
 
-`--check` 会读取并校验大资源，因此需要一些时间，但不会安装、编译或复制任何内容。
+`--check` 会读取并校验大资源，因此需要一些时间，但不会安装、编译或复制任何内容。手动同步 uv 环境、编译 CuRobo、复制资源和验证 CUDA 扩展的等价命令及原理说明，已按执行顺序移到 `scripts/setup_vcl_env.sh` 的注释中。
 
-如需手动执行其中的 Python 依赖同步，可在仓库根目录运行：
-
-```bash
-export CUDA_HOME=/usr/local/cuda
-export PATH="$CUDA_HOME/bin:$PATH"
-export TORCH_CUDA_ARCH_LIST=9.0  # H100；其他 GPU 请修改
-export UV_CACHE_DIR=/data/shared/FastWAM/uv-cache
-export UV_LINK_MODE=copy  # .venv 与共享缓存之间不创建硬链接
-
-uv sync --extra robotwin --locked --offline --no-python-downloads --python 3.10
-```
-
-该命令创建 `.venv`、按 `uv.lock` 从共享缓存安装 FastWAM 与 RoboTwin 依赖，且 `--offline` 禁止回退到网络。`UV_LINK_MODE=copy` 使环境文件成为独立副本，避免对 `.venv` 的修改影响共享缓存。`uv.lock` 是本项目环境的一部分，应随代码提交；`.venv` 不应提交。共享缓存已按 Linux x86_64、CPython 3.10、CUDA 12.8 的当前锁文件准备；若锁文件或平台改变，uv 会明确报出缺失项，应由共享缓存维护者先在线补齐对应缓存，目标工作副本仍保持 `--offline`。
-
-## 4. 编译仓库内的 CuRobo
-
-CuRobo 源码已位于 `third_party/RoboTwin/envs/curobo`，不需要再次 `git clone`。使用当前 uv 环境的 PyTorch 和 CUDA 工具链编译：
-
-```bash
-CUDA_HOME=/usr/local/cuda \
-TORCH_CUDA_ARCH_LIST=9.0 \
-SETUPTOOLS_SCM_PRETEND_VERSION_FOR_NVIDIA_CUROBO=0.7.2 \
-uv pip install --python .venv/bin/python \
-  --no-build-isolation --no-deps \
-  -e third_party/RoboTwin/envs/curobo
-```
-
-`--no-build-isolation` 使 `CUDAExtension` 使用 `.venv` 中的 PyTorch 头文件和库。仓库跟踪的是不带独立 `.git` 目录的 CuRobo 0.7.2 源码快照，因此 `SETUPTOOLS_SCM_PRETEND_VERSION_FOR_NVIDIA_CUROBO` 为 `setuptools-scm` 提供固定版本；它不访问网络，也不改变源码。构建产物为 `src/curobo/curobolib/*.so`，它们与机器、驱动、CUDA 和 PyTorch 版本绑定，已被 Git 忽略；更换其中任一项后重新执行本节命令。
-
-## 5. 验证
-
-在 Fabric 已完成初始化后执行：
-
-```bash
-CUDA_VISIBLE_DEVICES=0 uv run --no-sync python - <<'PY'
-import torch
-
-# 必须先加载 torch，使 CuRobo 扩展能找到 libc10/libtorch。
-from curobo.curobolib import geom_cu, kinematics_fused_cu
-
-print(torch.__version__, torch.version.cuda)
-print(torch.cuda.get_device_name(0))
-x = torch.tensor([1.0, 2.0, 3.0], device="cuda")
-print((x * x).sum().item())
-print(geom_cu.__name__, kinematics_fused_cu.__name__)
-PY
-
-uv pip check --python .venv/bin/python
-```
-
-预期会打印 CUDA 12.8、GPU 名称、`14.0`，并显示两个 CuRobo 扩展模块名。`uv pip check` 应报告所有已安装包兼容。
-
-## 6. RoboTwin 运行资源与配置
+## 4. RoboTwin 运行资源与配置
 
 版本管理与本地大文件的边界如下：
 
@@ -133,31 +60,34 @@ uv pip check --python .venv/bin/python
 
 评测默认使用 `configs/sim_robotwin.yaml`：RoboTwin 根目录为 `third_party/RoboTwin`，默认任务配置为 `demo_randomized`。RoboTwin 会从 `third_party/RoboTwin/task_config/` 读取 `demo_randomized.yml` 以及相机、embodiment、步数限制等配套 YAML。
 
-assets 和 checkpoint 必须已在本地就绪，才可运行 RoboTwin 评测；它们体积较大，故不进入 Git。共享盘中的副本只作为分发源；当前工作树保留原有本地目录，不会被本步骤替换。`scripts/setup_vcl_env.sh` 会复制缺失资源为实体目录；若目标已存在，则先做校验和 dry-run，一旦不一致便报错，不会覆盖或合并。每个新工作副本因此独立，修改本地副本不会影响共享副本或其他用户。
-
-在新的工作副本中，确认目标路径尚不存在后，复制资源目录：
-
-```bash
-test ! -e third_party/RoboTwin/assets
-test ! -e third_party/RoboTwin/checkpoints
-test ! -e checkpoints
-
-cp -a --no-preserve=ownership /data/shared/FastWAM/third_party/RoboTwin/assets third_party/RoboTwin/
-cp -a --no-preserve=ownership /data/shared/FastWAM/third_party/RoboTwin/checkpoints third_party/RoboTwin/
-cp -a --no-preserve=ownership /data/shared/FastWAM/checkpoints .
-```
-
-上述命令会在工作副本中生成实体目录，而不是软链接；复制完成后可以不挂载共享盘运行评测。
+assets 和 checkpoint 必须已在本地就绪，才可运行 RoboTwin 评测；它们体积较大，故不进入 Git。共享盘中的副本只作为分发源。`scripts/setup_vcl_env.sh` 会把缺失资源复制为本地实体目录；已存在的目录必须与共享副本一致，脚本不会覆盖或合并差异内容。复制完成后，评测不再依赖共享盘中的资源文件。
 
 评测入口示例与具体任务参数保留在项目原 README 和 Hydra 配置中，本文件不重复展开。
 
-## 7. 提交前检查
+## 5. 实验文档快速目录
 
-本次配置不执行 `git add` 或 `git commit`。提交前确认大文件和本机编译产物没有被加入：
+下列字符树只索引已稳定的总结与可复用归档，不在此复制实验结论。新增稳定实验后，按相同格式继续追加即可。
 
-```bash
-git status --short
-git check-ignore -v third_party/RoboTwin/assets/objects
-git check-ignore -v checkpoints/fastwam_release/robotwin_uncond_3cam_384.pt
-git check-ignore -v third_party/RoboTwin/envs/curobo/src/curobo/curobolib/geom_cu.cpython-310-x86_64-linux-gnu.so
+```text
+docs/experiments/
+|----- 2026-08-27-robotwin-all-tasks-seed-search/
+|      |----- summary.md
+|      \----- successful-seeds/
+|             \----- <task>.yaml    # 50 个任务的 successful seeds 归档
+\----- 2026-08-29-robotwin-all-tasks-seed-validation/
+       \----- summary.md
 ```
+
+- `2026-08-27` 的 `summary.md` 总结全任务 seed 搜索，`successful-seeds/` 保存对应 YAML 配置。
+- `2026-08-29` 的 `summary.md` 汇总全部 successful seeds 的独立验证结果。
+
+## 6. 全局 GPU 任务调度器
+
+仓库通过 `experiments/robotwin/schedule_robotwin_seed_search.py` 为跨任务实验提供统一的 SQLite GPU FIFO 队列。文件名保留了最初的 seed-search 用途，但当前 `--jobs-file` 接口可调度任意以 `uv run` 启动的命令作业，不与搜索或验证逻辑绑定。
+
+- 作业 JSON 可在 argv 中使用 `{gpu_id}`、`{job_name}` 和 `{output_dir}`，让同一模板安全展开为多个独立任务；`--dry-run` 可只建立队列和渲染配置，不启动子进程。
+- 调度器按 FIFO 消费队列，通过 `--gpu-ids` 和 `--max-tasks-per-gpu` 控制每张 GPU 的并发容量，槽位释放后自动启动后续作业。
+- 每个作业拥有独立的输出目录和 launcher 日志；队列状态、GPU 分配、启停时间、退出码和事件持久化到 SQLite，避免多个任务并发写同一份结果或日志。
+- 作业超时、失败或收到终止信号时，调度器按独立进程组收尾并记录终态；队列消费完毕后正常退出，不需要 systemd 或常驻 service。
+
+当前调度器是一次性批次 consumer，不提供运行中追加、常驻模式或跨调度器 GPU 锁。如需并行启动多个批次，应为它们显式划分不重叠的 GPU 集合。已运行的作业配置示例保存在 `docs/experiments/2026-08-29-robotwin-all-tasks-seed-validation/` 下的 `*-jobs.json` 文件中。
