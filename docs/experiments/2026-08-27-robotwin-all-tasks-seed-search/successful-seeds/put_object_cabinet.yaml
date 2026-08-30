@@ -1,4 +1,4 @@
-task_name: place_bread_skillet
+task_name: put_object_cabinet
 checkpoint: checkpoints/fastwam_release/robotwin_uncond_3cam_384.pt
 policy_seed: 42
 phases:
@@ -6,47 +6,47 @@ phases:
     task_config: demo_clean
     instruction_type: seen
     successful_seeds:
-    - environment_seed: 4300001
+    - environment_seed: 4300002
       consecutive_successes: 5
-    - environment_seed: 4300004
-      consecutive_successes: 5
-    - environment_seed: 4300009
+    - environment_seed: 4300010
       consecutive_successes: 5
     - environment_seed: 4300013
       consecutive_successes: 5
-    - environment_seed: 4300014
+    - environment_seed: 4300042
       consecutive_successes: 5
-    - environment_seed: 4300023
+    - environment_seed: 4300047
       consecutive_successes: 5
-    - environment_seed: 4300024
+    - environment_seed: 4300066
       consecutive_successes: 5
-    - environment_seed: 4300025
+    - environment_seed: 4300070
       consecutive_successes: 5
-    - environment_seed: 4300030
+    - environment_seed: 4300077
       consecutive_successes: 5
-    - environment_seed: 4300035
+    - environment_seed: 4300090
+      consecutive_successes: 5
+    - environment_seed: 4300147
       consecutive_successes: 5
   random:
     task_config: demo_randomized
     instruction_type: unseen
     successful_seeds:
-    - environment_seed: 4300001
+    - environment_seed: 4300047
       consecutive_successes: 5
-    - environment_seed: 4300005
+    - environment_seed: 4300053
       consecutive_successes: 5
-    - environment_seed: 4300010
+    - environment_seed: 4300063
       consecutive_successes: 5
-    - environment_seed: 4300011
+    - environment_seed: 4300067
       consecutive_successes: 5
-    - environment_seed: 4300013
+    - environment_seed: 4300103
       consecutive_successes: 5
-    - environment_seed: 4300017
+    - environment_seed: 4300134
       consecutive_successes: 5
-    - environment_seed: 4300018
+    - environment_seed: 4300177
       consecutive_successes: 5
-    - environment_seed: 4300019
+    - environment_seed: 4300205
       consecutive_successes: 5
-    - environment_seed: 4300021
+    - environment_seed: 4300342
       consecutive_successes: 5
-    - environment_seed: 4300023
+    - environment_seed: 4300376
       consecutive_successes: 5

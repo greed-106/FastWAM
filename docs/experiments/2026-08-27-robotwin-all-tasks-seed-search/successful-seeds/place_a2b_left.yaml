@@ -24,13 +24,13 @@ phases:
       consecutive_successes: 5
     - environment_seed: 4300011
       consecutive_successes: 5
-    - environment_seed: 4300013
+    - environment_seed: 4300012
       consecutive_successes: 5
   random:
     task_config: demo_randomized
     instruction_type: unseen
     successful_seeds:
-    - environment_seed: 4300000
+    - environment_seed: 4300001
       consecutive_successes: 5
     - environment_seed: 4300003
       consecutive_successes: 5
@@ -38,15 +38,15 @@ phases:
       consecutive_successes: 5
     - environment_seed: 4300005
       consecutive_successes: 5
-    - environment_seed: 4300006
-      consecutive_successes: 5
     - environment_seed: 4300007
+      consecutive_successes: 5
+    - environment_seed: 4300008
+      consecutive_successes: 5
+    - environment_seed: 4300010
       consecutive_successes: 5
     - environment_seed: 4300011
       consecutive_successes: 5
     - environment_seed: 4300012
-      consecutive_successes: 5
-    - environment_seed: 4300014
       consecutive_successes: 5
     - environment_seed: 4300016
       consecutive_successes: 5

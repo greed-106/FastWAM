@@ -12,9 +12,9 @@ phases:
       consecutive_successes: 5
     - environment_seed: 4300002
       consecutive_successes: 5
-    - environment_seed: 4300004
+    - environment_seed: 4300003
       consecutive_successes: 5
-    - environment_seed: 4300005
+    - environment_seed: 4300004
       consecutive_successes: 5
     - environment_seed: 4300006
       consecutive_successes: 5
@@ -30,15 +30,13 @@ phases:
     task_config: demo_randomized
     instruction_type: unseen
     successful_seeds:
-    - environment_seed: 4300001
+    - environment_seed: 4300000
       consecutive_successes: 5
-    - environment_seed: 4300002
+    - environment_seed: 4300001
       consecutive_successes: 5
     - environment_seed: 4300003
       consecutive_successes: 5
     - environment_seed: 4300004
-      consecutive_successes: 5
-    - environment_seed: 4300005
       consecutive_successes: 5
     - environment_seed: 4300007
       consecutive_successes: 5
@@ -49,4 +47,6 @@ phases:
     - environment_seed: 4300012
       consecutive_successes: 5
     - environment_seed: 4300014
+      consecutive_successes: 5
+    - environment_seed: 4300017
       consecutive_successes: 5

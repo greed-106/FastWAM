@@ -8,9 +8,7 @@ phases:
     successful_seeds:
     - environment_seed: 4300000
       consecutive_successes: 5
-    - environment_seed: 4300005
-      consecutive_successes: 5
-    - environment_seed: 4300012
+    - environment_seed: 4300001
       consecutive_successes: 5
     - environment_seed: 4300013
       consecutive_successes: 5
@@ -26,11 +24,13 @@ phases:
       consecutive_successes: 5
     - environment_seed: 4300046
       consecutive_successes: 5
+    - environment_seed: 4300053
+      consecutive_successes: 5
   random:
     task_config: demo_randomized
     instruction_type: unseen
     successful_seeds:
-    - environment_seed: 4300015
+    - environment_seed: 4300004
       consecutive_successes: 5
     - environment_seed: 4300028
       consecutive_successes: 5
@@ -38,15 +38,15 @@ phases:
       consecutive_successes: 5
     - environment_seed: 4300038
       consecutive_successes: 5
-    - environment_seed: 4300051
+    - environment_seed: 4300048
       consecutive_successes: 5
-    - environment_seed: 4300053
+    - environment_seed: 4300051
       consecutive_successes: 5
     - environment_seed: 4300054
       consecutive_successes: 5
-    - environment_seed: 4300060
+    - environment_seed: 4300056
       consecutive_successes: 5
-    - environment_seed: 4300062
+    - environment_seed: 4300058
       consecutive_successes: 5
-    - environment_seed: 4300063
+    - environment_seed: 4300064
       consecutive_successes: 5

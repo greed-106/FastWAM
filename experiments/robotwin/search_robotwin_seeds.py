@@ -319,9 +319,7 @@ def _task_args(runtime: dict[str, Any], config: dict[str, Any], phase: str) -> d
     return args
 
 
-def _run_expert(runtime: dict[str, Any], config: dict[str, Any], args: dict[str, Any], environment_seed: int) -> tuple[dict[str, Any], dict[str, Any] | None]:
-    official_eval = runtime["official_eval"]
-    env = official_eval.class_decorator(config["task_name"])
+def _run_expert(env: Any, args: dict[str, Any], environment_seed: int) -> tuple[dict[str, Any], dict[str, Any] | None]:
     try:
         env.setup_demo(now_ep_num=0, seed=environment_seed, is_test=True, **args)
         episode_info = env.play_once()
@@ -348,13 +346,12 @@ def _pick_instruction(runtime: dict[str, Any], config: dict[str, Any], phase: st
 def _run_rollout(
     runtime: dict[str, Any],
     config: dict[str, Any],
+    env: Any,
     args: dict[str, Any],
     environment_seed: int,
     instruction: str,
     repeat_index: int,
 ) -> dict[str, Any]:
-    official_eval = runtime["official_eval"]
-    env = official_eval.class_decorator(config["task_name"])
     success = False
     error_text: str | None = None
     try:
@@ -389,7 +386,8 @@ def _run_rollout(
 def _evaluate_candidate(runtime: dict[str, Any], config: dict[str, Any], phase: str, environment_seed: int, gpu_id: str) -> dict[str, Any]:
     started_at = _now()
     args = _task_args(runtime, config, phase)
-    expert, episode_info = _run_expert(runtime, config, args, environment_seed)
+    env = runtime["official_eval"].class_decorator(config["task_name"])
+    expert, episode_info = _run_expert(env, args, environment_seed)
     result: dict[str, Any] = {
         "task_name": config["task_name"],
         "phase": phase,
@@ -422,7 +420,7 @@ def _evaluate_candidate(runtime: dict[str, Any], config: dict[str, Any], phase: 
 
     for repeat_index in range(config["repeats"]):
         result["rollouts"].append(
-            _run_rollout(runtime, config, copy.deepcopy(args), environment_seed, instruction, repeat_index)
+            _run_rollout(runtime, config, env, copy.deepcopy(args), environment_seed, instruction, repeat_index)
         )
     result["all_rollouts_success"] = all(item["success"] for item in result["rollouts"])
     result["finished_at"] = _now()
