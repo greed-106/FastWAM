@@ -110,7 +110,10 @@ class Base_Task(gym.Env):
         self.plan_success = True
         self.step_lim = None
         self.fix_gripper = False
-        self.setup_scene()
+        self.setup_scene(
+            static_friction=kwags.get("static_friction", 0.5),
+            dynamic_friction=kwags.get("dynamic_friction", 0.5),
+        )
 
         self.left_js = None
         self.right_js = None

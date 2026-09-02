@@ -297,6 +297,10 @@ def _task_args(runtime: dict[str, Any], config: dict[str, Any], phase: str) -> d
     args["eval_mode"] = True
     args["render_freq"] = 0
     args["eval_video_log"] = False
+    if "static_friction" in config:
+        args["static_friction"] = config["static_friction"]
+    if "dynamic_friction" in config:
+        args["dynamic_friction"] = config["dynamic_friction"]
 
     embodiment_config_path = Path(official_eval.CONFIGS_PATH) / "_embodiment_config.yml"
     with embodiment_config_path.open("r", encoding="utf-8") as file:
